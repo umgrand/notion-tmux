@@ -1,0 +1,60 @@
+{
+  "projects": [
+    {
+      "key": "dochub",
+      "databaseId": "37d76edb7c8080518a3bdffe209522f4",
+      "dataSourceId": "37d76edb-7c80-8090-9a34-000b269f1403",
+      "repoRoot": "/Users/matteogrand/Coding/dochub",
+      "baseBranch": "main",
+      "branchPrefix": "bot",
+      "statusProperty": "Status",
+      "trigger": "Ready for Dev",
+      "working": "In Progress",
+      "review": "In Review",
+      "blocked": "Blocked",
+      "prProperty": "PR",
+      "ticketIdProperty": "Ticket ID",
+      "verify": ["npm run lint", "npm run build"],
+      "allowedBash": [
+        "Bash(npm run lint)",
+        "Bash(npm run build)",
+        "Bash(npm install)",
+        "Bash(npx tsc:*)"
+      ]
+    },
+    {
+      "key": "aalto",
+      "databaseId": "37d76edb7c8080809bbdfa65961807ab",
+      "dataSourceId": "37d76edb-7c80-80c9-8a5a-000b7731363b",
+      "repoRoot": "/Users/matteogrand/Coding/kuru",
+      "baseBranch": "main",
+      "branchPrefix": "bot",
+      "statusProperty": "Status",
+      "trigger": "Ready for Dev",
+      "working": "In Progress",
+      "review": "In Review",
+      "blocked": "Blocked",
+      "prProperty": "PR",
+      "ticketIdProperty": "Ticket ID",
+      "verify": ["npm run lint", "npm run build"],
+      "allowedBash": ["Bash(npm run lint)", "Bash(npm run build)", "Bash(npm install)"]
+    },
+    {
+      "key": "mento",
+      "databaseId": "e2ad8bcfe83445b19dddbda76bc8f1cd",
+      "dataSourceId": "b9663ad4-c8a5-4602-9674-e0209449d2e4",
+      "repoRoot": "/Users/matteogrand/Coding/mento-test/mento-app",
+      "baseBranch": "main",
+      "branchPrefix": "bot",
+      "statusProperty": "Status",
+      "trigger": "Ready for dev",
+      "working": "In progress",
+      "review": "In Review",
+      "blocked": "Blocked",
+      "prProperty": "PR",
+      "ticketIdProperty": "Ticket ID",
+      "verify": [],
+      "allowedBash": ["Bash(cd app:*)", "Bash(flutter:*)", "Bash(dart:*)"]
+    }
+  ]
+}

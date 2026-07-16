@@ -1,0 +1,30 @@
+{
+  "name": "@notion-tmux/ticket-engine",
+  "version": "0.2.2",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "notion-tmux": "./dist/cli/flint.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "npm run build && tsx --test src/**/*.test.ts",
+    "start": "tsx src/cli/start.ts",
+    "doctor": "tsx src/cli/doctor.ts",
+    "run-once": "tsx src/cli/run-once.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.0",
+    "@notion-tmux/shared": "*",
+    "@notionhq/client": "^2.3.0",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "tsx": "^4.16.0",
+    "typescript": "^5.5.0"
+  }
+}
