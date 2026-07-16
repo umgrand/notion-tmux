@@ -77,84 +77,69 @@ fi  # end NOTION_TMUX_SETUP_SKIP_INSTALL guard
 # ---------------------------------------------------------------------------
 # 5. Interactive config scaffold
 # ---------------------------------------------------------------------------
-step "Configuring your run directory"
+step "Configuring"
 
-DEFAULT_RUN_DIR="$HOME/notion-tmux-run"
-read -r -p "  Run directory [$DEFAULT_RUN_DIR]: " RUN_DIR
-RUN_DIR="${RUN_DIR:-$DEFAULT_RUN_DIR}"
-# Expand a leading ~ manually (read gives it to us literally).
-RUN_DIR="${RUN_DIR/#\~/$HOME}"
+# Everything lives in one run directory. No prompt — sensible default; edit the
+# files afterward to add more projects or change the trigger status.
+RUN_DIR="$HOME/notion-tmux-run"
 mkdir -p "$RUN_DIR"
-
 ENV_FILE="$RUN_DIR/.env"
 PROJECTS_FILE="$RUN_DIR/projects.json"
 
 # Guard against clobbering an existing setup.
 confirm_overwrite() {
   local file="$1"
-  if [ -e "$file" ]; then
-    warn "$file already exists."
-    read -r -p "  Overwrite it? Type 'yes' to confirm: " reply
-    [ "$reply" = "yes" ]
-  fi
+  warn "$file already exists."
+  read -r -p "  Overwrite it? Type 'yes' to confirm: " reply
+  [ "$reply" = "yes" ]
 }
 
-WRITE_ENV=1
-if [ -e "$ENV_FILE" ] && ! confirm_overwrite "$ENV_FILE"; then
-  WRITE_ENV=0
-  info "Keeping existing .env."
+if [ -e "$ENV_FILE" ] && [ -e "$PROJECTS_FILE" ]; then
+  if ! confirm_overwrite "$RUN_DIR (.env + projects.json)"; then
+    info "Keeping existing config in $RUN_DIR."
+    SKIP_CONFIG=1
+  fi
 fi
 
-if [ "$WRITE_ENV" -eq 1 ]; then
-  # -s hides the token; it never appears in the terminal, argv, or shell history.
-  read -r -s -p "  Notion integration token (input hidden): " NOTION_TOKEN
+if [ "${SKIP_CONFIG:-0}" != "1" ]; then
+  # Just three things — the rest is derived or defaulted.
+  # -s hides the token; it never appears on screen, in argv, or shell history.
+  read -r -s -p "  1) Notion integration token (input hidden): " NOTION_TOKEN
   printf '\n'
-  if [ -z "$NOTION_TOKEN" ]; then
-    warn "No token entered. You'll need to add NOTION_TOKEN to $ENV_FILE before running."
-  fi
-  read -r -p "  Default agent (claude/codex/gemini) [claude]: " DEFAULT_AGENT
-  DEFAULT_AGENT="${DEFAULT_AGENT:-claude}"
+  [ -z "$NOTION_TOKEN" ] && warn "No token entered — add NOTION_TOKEN to $ENV_FILE before running."
+  read -r -p "  2) Notion database link (paste the URL, or the ID): " DB_INPUT
+  read -r -p "  3) Base repo folder [$REPO_ROOT]: " PROJ_REPO
+  PROJ_REPO="${PROJ_REPO:-$REPO_ROOT}"
+  PROJ_REPO="${PROJ_REPO/#\~/$HOME}"
+  read -r -p "     Coding agent (claude/codex/gemini) [claude]: " AGENT
+  AGENT="${AGENT:-claude}"
+
+  # Derived, not asked:
+  PROJ_KEY="$(basename "$PROJ_REPO")"   # project key = repo folder name
+  PROJ_TRIGGER="Ready for Dev"          # default Notion status that triggers a run
 
   umask 077   # .env holds a secret — owner-only permissions.
   cat > "$ENV_FILE" <<EOF
 NOTION_TOKEN=$NOTION_TOKEN
-DEFAULT_AGENT=$DEFAULT_AGENT
+DEFAULT_AGENT=$AGENT
 AGENT_TIMEOUT_MIN=20
 POLL_INTERVAL_SEC=30
 EOF
   info "Wrote $ENV_FILE (permissions 600)."
-fi
 
-WRITE_PROJECTS=1
-if [ -e "$PROJECTS_FILE" ] && ! confirm_overwrite "$PROJECTS_FILE"; then
-  WRITE_PROJECTS=0
-  info "Keeping existing projects.json."
-fi
-
-if [ "$WRITE_PROJECTS" -eq 1 ]; then
-  info "Now one project to watch (edit projects.json later to add more)."
-  read -r -p "  Project key (short name, e.g. demo): " PROJ_KEY
-  PROJ_KEY="${PROJ_KEY:-demo}"
-  read -r -p "  Repo path [$REPO_ROOT]: " PROJ_REPO
-  PROJ_REPO="${PROJ_REPO:-$REPO_ROOT}"
-  PROJ_REPO="${PROJ_REPO/#\~/$HOME}"
-  read -r -p "  Notion database ID: " PROJ_DB
-  read -r -p "  Trigger status [Ready for Dev]: " PROJ_TRIGGER
-  PROJ_TRIGGER="${PROJ_TRIGGER:-Ready for Dev}"
-  read -r -p "  Agent for this project [${DEFAULT_AGENT:-claude}]: " PROJ_AGENT
-  PROJ_AGENT="${PROJ_AGENT:-${DEFAULT_AGENT:-claude}}"
-
-  if [ -z "$PROJ_DB" ]; then
-    warn "No database ID entered — fill in \"databaseId\" in $PROJECTS_FILE before running."
-  fi
-
-  # Emit JSON via node so values are correctly escaped (paths/names with quotes,
-  # spaces, backslashes). Fields not set here fall back to loadLegacyConfig defaults.
-  KEY="$PROJ_KEY" REPO="$PROJ_REPO" DB="$PROJ_DB" TRIGGER="$PROJ_TRIGGER" AGENT="$PROJ_AGENT" OUT="$PROJECTS_FILE" \
+  # Emit JSON via node so values are correctly escaped, and pull the 32-char
+  # database id out of a pasted Notion URL (same rule as the engine's
+  # pageIdFromArg). Fields not set here fall back to loadLegacyConfig defaults.
+  KEY="$PROJ_KEY" REPO="$PROJ_REPO" DB="$DB_INPUT" TRIGGER="$PROJ_TRIGGER" AGENT="$AGENT" OUT="$PROJECTS_FILE" \
     node -e '
+      const raw = (process.env.DB || "").trim();
+      const m =
+        raw.match(/([0-9a-f]{32})(?:\?|\/|$)/i) ||
+        raw.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+      const databaseId = m ? (m[1] || m[0]).replace(/-/g, "") : raw;
       const p = {
         key: process.env.KEY,
-        databaseId: process.env.DB,
+        databaseId,
         repoRoot: process.env.REPO,
         baseBranch: "main",
         trigger: process.env.TRIGGER,
@@ -162,10 +147,10 @@ if [ "$WRITE_PROJECTS" -eq 1 ]; then
         verify: [],
         allowedBash: [],
       };
-      const fs = require("fs");
-      fs.writeFileSync(process.env.OUT, JSON.stringify({ projects: [p] }, null, 2) + "\n");
+      require("fs").writeFileSync(process.env.OUT, JSON.stringify({ projects: [p] }, null, 2) + "\n");
+      if (!databaseId) console.error("  (no database id parsed — edit " + process.env.OUT + ")");
     '
-  info "Wrote $PROJECTS_FILE."
+  info "Wrote $PROJECTS_FILE (project \"$PROJ_KEY\", trigger status \"$PROJ_TRIGGER\")."
 fi
 
 # ---------------------------------------------------------------------------
@@ -186,4 +171,4 @@ printf '  2. Start the daemon:\n'
 printf '       cd %s && notion-tmux watch\n' "$RUN_DIR"
 printf '  3. In another terminal, watch the ticket windows:\n'
 printf '       tmux attach -t notion-tmux\n'
-printf '\nMove a Notion ticket to "%s" and a tmux window opens streaming its run.\n' "$PROJ_TRIGGER"
+printf '\nMove a Notion ticket to "%s" and a tmux window opens streaming its run.\n' "${PROJ_TRIGGER:-Ready for Dev}"

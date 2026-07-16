@@ -14,9 +14,16 @@ npm run setup
 ```
 
 `npm run setup` installs dependencies, builds the workspace, links the
-`notion-tmux` command onto your `PATH`, and walks you through an interactive
-scaffold that writes `.env` and `projects.json` into a run directory of your
-choice (default `~/notion-tmux-run`).
+`notion-tmux` command onto your `PATH`, then asks you just three things:
+
+1. your Notion integration token (entered hidden),
+2. your Notion database link (paste the URL — the id is extracted for you),
+3. the repo folder to run against.
+
+From those it writes `.env` and `projects.json` into `~/notion-tmux-run` (the
+project name is taken from the repo folder; the trigger status defaults to
+"Ready for Dev"). Nothing to edit by hand — though you can, to add more
+projects or change the trigger.
 
 Once setup finishes:
 
